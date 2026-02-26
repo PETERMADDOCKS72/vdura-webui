@@ -1,0 +1,38 @@
+[
+  {
+    "id": "pool-001",
+    "name": "SSD_Pool_01",
+    "status": "online",
+    "totalCapacityBytes": 8796093022208,
+    "usedCapacityBytes": 5497558138880,
+    "availableCapacityBytes": 3298534883328,
+    "volumeCount": 2,
+    "driveCount": 8,
+    "raidLevel": "RAID 6",
+    "tier": "ssd"
+  },
+  {
+    "id": "pool-002",
+    "name": "Hybrid_Pool_01",
+    "status": "online",
+    "totalCapacityBytes": 17592186044416,
+    "usedCapacityBytes": 10995116277760,
+    "availableCapacityBytes": 6597069766656,
+    "volumeCount": 2,
+    "driveCount": 12,
+    "raidLevel": "RAID 6",
+    "tier": "hybrid"
+  },
+  {
+    "id": "pool-003",
+    "name": "NL_Pool_01",
+    "status": "degraded",
+    "totalCapacityBytes": 43980465111040,
+    "usedCapacityBytes": 35184372088832,
+    "availableCapacityBytes": 8796093022208,
+    "volumeCount": 2,
+    "driveCount": 24,
+    "raidLevel": "RAID 6",
+    "tier": "nearline"
+  }
+]

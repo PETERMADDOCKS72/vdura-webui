@@ -1,0 +1,31 @@
+{
+  "clusterName": "VDURA-V5000-PROD",
+  "model": "VDURA V5000",
+  "serialNumber": "VD5K-2025-00482",
+  "firmwareVersion": "8.6.1.0",
+  "totalRawCapacityBytes": 87960930222080,
+  "totalUsableCapacityBytes": 70368744177664,
+  "totalUsedCapacityBytes": 51677046505472,
+  "nodeCount": 2,
+  "nodes": [
+    {
+      "id": "node-001",
+      "name": "Node 1",
+      "status": "online",
+      "serialNumber": "VD5KN-001-A",
+      "firmwareVersion": "8.6.1.0",
+      "cpuUsagePercent": 42,
+      "memoryUsagePercent": 67
+    },
+    {
+      "id": "node-002",
+      "name": "Node 2",
+      "status": "online",
+      "serialNumber": "VD5KN-002-A",
+      "firmwareVersion": "8.6.1.0",
+      "cpuUsagePercent": 38,
+      "memoryUsagePercent": 61
+    }
+  ],
+  "uptimeSeconds": 7776000
+}

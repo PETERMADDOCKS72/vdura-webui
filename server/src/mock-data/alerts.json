@@ -1,0 +1,54 @@
+[
+  {
+    "id": "alert-001",
+    "severity": "critical",
+    "status": "active",
+    "message": "Drive failure detected in NL_Pool_01 - Enclosure 1, Slot 14",
+    "source": "NL_Pool_01",
+    "timestamp": "2026-02-25T08:15:00Z"
+  },
+  {
+    "id": "alert-002",
+    "severity": "warning",
+    "status": "active",
+    "message": "Pool NL_Pool_01 capacity exceeds 80% threshold",
+    "source": "NL_Pool_01",
+    "timestamp": "2026-02-24T22:00:00Z"
+  },
+  {
+    "id": "alert-003",
+    "severity": "warning",
+    "status": "acknowledged",
+    "message": "Volume test-vol-01 is in degraded state",
+    "source": "test-vol-01",
+    "timestamp": "2026-02-24T16:30:00Z",
+    "acknowledgedAt": "2026-02-24T17:00:00Z"
+  },
+  {
+    "id": "alert-004",
+    "severity": "info",
+    "status": "resolved",
+    "message": "Firmware update available: v8.6.2.0",
+    "source": "System",
+    "timestamp": "2026-02-23T10:00:00Z",
+    "resolvedAt": "2026-02-23T14:00:00Z"
+  },
+  {
+    "id": "alert-005",
+    "severity": "info",
+    "status": "resolved",
+    "message": "Node 2 restarted successfully after maintenance",
+    "source": "node-002",
+    "timestamp": "2026-02-22T06:00:00Z",
+    "resolvedAt": "2026-02-22T06:15:00Z"
+  },
+  {
+    "id": "alert-006",
+    "severity": "critical",
+    "status": "resolved",
+    "message": "FC port offline on Node 1 - Port 3",
+    "source": "node-001",
+    "timestamp": "2026-02-20T12:00:00Z",
+    "resolvedAt": "2026-02-20T12:30:00Z"
+  }
+]
