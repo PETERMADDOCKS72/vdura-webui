@@ -5,6 +5,8 @@ import { MockHostService } from './mock/host.service.js';
 import { MockAlertService } from './mock/alert.service.js';
 import { MockPerformanceService } from './mock/performance.service.js';
 import { MockSystemService } from './mock/system.service.js';
+import { createSimulatorServices } from './simulator/index.js';
+import { createV5000Services } from './v5000/index.js';
 
 function createMockServices(): ServiceRegistry {
   return {
@@ -18,13 +20,15 @@ function createMockServices(): ServiceRegistry {
 }
 
 export function createServices(): ServiceRegistry {
-  const mode = process.env.API_MODE ?? 'mock';
+  const mode = process.env.API_MODE ?? 'simulator';
 
   switch (mode) {
     case 'mock':
       return createMockServices();
+    case 'simulator':
+      return createSimulatorServices();
     case 'v5000':
-      throw new Error('V5000 services not yet implemented');
+      return createV5000Services();
     default:
       throw new Error(`Unknown API_MODE: ${mode}`);
   }
