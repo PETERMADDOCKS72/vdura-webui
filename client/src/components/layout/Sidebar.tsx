@@ -1,55 +1,69 @@
 import { NavLink } from 'react-router';
 import {
-  LayoutDashboard, HardDrive, Database, Server,
-  Bell, Activity, Settings, ChevronLeft,
+  BarChart3, HardDrive, Network, HelpCircle, Lock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUIStore } from '@/stores/ui';
-import { Button } from '@/components/ui/button';
 
 const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/volumes', icon: HardDrive, label: 'Volumes' },
-  { to: '/pools', icon: Database, label: 'Pools' },
-  { to: '/hosts', icon: Server, label: 'Hosts' },
-  { to: '/alerts', icon: Bell, label: 'Alerts' },
-  { to: '/performance', icon: Activity, label: 'Performance' },
-  { to: '/system', icon: Settings, label: 'System' },
+  { to: '/', icon: BarChart3, label: 'Dashboards' },
+  { to: '/volumes', icon: HardDrive, label: 'File System' },
+  { to: '/nodes', icon: Network, label: 'Realm Nodes' },
+];
+
+const bottomItems = [
+  { to: '/help', icon: HelpCircle, label: 'Get Help' },
+  { to: '/about', icon: Lock, label: 'About' },
 ];
 
 export function Sidebar() {
-  const { sidebarOpen, toggleSidebar } = useUIStore();
-
   return (
-    <aside
-      className={cn(
-        'flex h-screen flex-col border-r bg-sidebar-background transition-all duration-300',
-        sidebarOpen ? 'w-60' : 'w-16',
-      )}
-    >
-      <div className="flex h-14 items-center justify-between border-b px-4">
-        {sidebarOpen && <span className="text-lg font-bold text-sidebar-primary">VDURA V5000</span>}
-        <Button variant="ghost" size="icon" onClick={toggleSidebar} className="ml-auto">
-          <ChevronLeft className={cn('h-4 w-4 transition-transform', !sidebarOpen && 'rotate-180')} />
-        </Button>
+    <aside className="flex h-screen w-16 flex-col border-r border-border bg-sidebar-background">
+      {/* VDURA V Logo */}
+      <div className="flex h-14 items-center justify-center border-b border-border">
+        <svg width="28" height="24" viewBox="0 0 28 24" fill="none">
+          <path d="M2 2L14 22L26 2H20L14 14L8 2H2Z" fill="#d4a017" />
+        </svg>
       </div>
-      <nav className="flex-1 space-y-1 p-2">
+
+      {/* Main nav */}
+      <nav className="flex flex-1 flex-col items-center gap-1 py-3">
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
             end={to === '/'}
+            title={label}
             className={({ isActive }) =>
               cn(
-                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                'flex h-10 w-10 items-center justify-center rounded-md transition-colors',
                 isActive
-                  ? 'bg-sidebar-accent text-sidebar-primary'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent/50',
+                  ? 'bg-vdura-amber text-vdura-amber-light text-black'
+                  : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
               )
             }
           >
-            <Icon className="h-5 w-5 shrink-0" />
-            {sidebarOpen && <span>{label}</span>}
+            <Icon className="h-5 w-5" />
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* Bottom nav */}
+      <nav className="flex flex-col items-center gap-1 border-t border-border py-3">
+        {bottomItems.map(({ to, icon: Icon, label }) => (
+          <NavLink
+            key={to}
+            to={to}
+            title={label}
+            className={({ isActive }) =>
+              cn(
+                'flex h-10 w-10 items-center justify-center rounded-md transition-colors',
+                isActive
+                  ? 'bg-vdura-amber text-black'
+                  : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+              )
+            }
+          >
+            <Icon className="h-5 w-5" />
           </NavLink>
         ))}
       </nav>

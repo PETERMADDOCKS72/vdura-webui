@@ -1,62 +1,53 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: oklch(1 0 0);
-  --color-foreground: oklch(0.145 0 0);
-  --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.145 0 0);
-  --color-popover: oklch(1 0 0);
-  --color-popover-foreground: oklch(0.145 0 0);
-  --color-primary: oklch(0.205 0.08 265);
-  --color-primary-foreground: oklch(0.985 0 0);
-  --color-secondary: oklch(0.97 0 0);
-  --color-secondary-foreground: oklch(0.205 0 0);
-  --color-muted: oklch(0.97 0 0);
-  --color-muted-foreground: oklch(0.556 0 0);
-  --color-accent: oklch(0.97 0 0);
-  --color-accent-foreground: oklch(0.205 0 0);
-  --color-destructive: oklch(0.577 0.245 27.325);
-  --color-destructive-foreground: oklch(0.577 0.245 27.325);
-  --color-border: oklch(0.922 0 0);
-  --color-input: oklch(0.922 0 0);
-  --color-ring: oklch(0.708 0.165 254.624);
-  --color-sidebar-background: oklch(0.985 0 0);
-  --color-sidebar-foreground: oklch(0.145 0 0);
-  --color-sidebar-primary: oklch(0.205 0.08 265);
-  --color-sidebar-primary-foreground: oklch(0.985 0 0);
-  --color-sidebar-accent: oklch(0.97 0 0);
-  --color-sidebar-accent-foreground: oklch(0.205 0 0);
-  --color-sidebar-border: oklch(0.922 0 0);
-  --radius: 0.625rem;
-}
+  /* VDURA Dark Theme - matching Figma */
+  --color-background: #1a1a1e;
+  --color-foreground: #e8e8ea;
+  --color-card: #242428;
+  --color-card-foreground: #e8e8ea;
+  --color-popover: #2a2a2e;
+  --color-popover-foreground: #e8e8ea;
 
-.dark {
-  --color-background: oklch(0.145 0 0);
-  --color-foreground: oklch(0.985 0 0);
-  --color-card: oklch(0.205 0 0);
-  --color-card-foreground: oklch(0.985 0 0);
-  --color-popover: oklch(0.205 0 0);
-  --color-popover-foreground: oklch(0.985 0 0);
-  --color-primary: oklch(0.708 0.165 254.624);
-  --color-primary-foreground: oklch(0.145 0 0);
-  --color-secondary: oklch(0.269 0 0);
-  --color-secondary-foreground: oklch(0.985 0 0);
-  --color-muted: oklch(0.269 0 0);
-  --color-muted-foreground: oklch(0.708 0 0);
-  --color-accent: oklch(0.269 0 0);
-  --color-accent-foreground: oklch(0.985 0 0);
-  --color-destructive: oklch(0.704 0.191 22.216);
-  --color-destructive-foreground: oklch(0.704 0.191 22.216);
-  --color-border: oklch(0.3 0 0);
-  --color-input: oklch(0.3 0 0);
-  --color-ring: oklch(0.708 0.165 254.624);
-  --color-sidebar-background: oklch(0.18 0 0);
-  --color-sidebar-foreground: oklch(0.985 0 0);
-  --color-sidebar-primary: oklch(0.708 0.165 254.624);
-  --color-sidebar-primary-foreground: oklch(0.145 0 0);
-  --color-sidebar-accent: oklch(0.269 0 0);
-  --color-sidebar-accent-foreground: oklch(0.985 0 0);
-  --color-sidebar-border: oklch(0.3 0 0);
+  /* Primary = VDURA amber/gold */
+  --color-primary: #d4a017;
+  --color-primary-foreground: #1a1a1e;
+
+  --color-secondary: #2e2e32;
+  --color-secondary-foreground: #c0c0c4;
+
+  --color-muted: #2e2e32;
+  --color-muted-foreground: #888890;
+
+  --color-accent: #d4a017;
+  --color-accent-foreground: #1a1a1e;
+
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #ffffff;
+
+  --color-border: #333338;
+  --color-input: #333338;
+  --color-ring: #d4a017;
+
+  /* Sidebar */
+  --color-sidebar-background: #1a1a1e;
+  --color-sidebar-foreground: #888890;
+  --color-sidebar-primary: #d4a017;
+  --color-sidebar-primary-foreground: #1a1a1e;
+  --color-sidebar-accent: #2e2e32;
+  --color-sidebar-accent-foreground: #e8e8ea;
+  --color-sidebar-border: #333338;
+
+  /* VDURA custom colors */
+  --color-vdura-amber: #d4a017;
+  --color-vdura-amber-light: #e8b930;
+  --color-vdura-surface: #242428;
+  --color-vdura-surface-raised: #2e2e32;
+  --color-vdura-green: #22c55e;
+  --color-vdura-warning: #d4a017;
+  --color-vdura-error: #dc2626;
+
+  --radius: 0.5rem;
 }
 
 @layer base {
@@ -65,6 +56,6 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 }

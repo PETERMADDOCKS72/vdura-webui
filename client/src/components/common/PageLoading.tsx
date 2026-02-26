@@ -3,14 +3,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 export function PageLoading() {
   return (
     <div className="space-y-4 p-6">
-      <Skeleton className="h-8 w-48" />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Skeleton className="h-32" />
-        <Skeleton className="h-32" />
-        <Skeleton className="h-32" />
-        <Skeleton className="h-32" />
+      <Skeleton className="h-9 w-48" />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Skeleton className="h-16" />
+        <Skeleton className="h-16" />
+        <Skeleton className="h-16" />
       </div>
-      <Skeleton className="h-64" />
+      <Skeleton className="h-48" />
     </div>
   );
 }
