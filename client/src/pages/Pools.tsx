@@ -18,16 +18,19 @@ export default function Pools() {
       <h1 className="text-3xl font-bold">Storage Pools</h1>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {(pools ?? []).map((pool, idx) => {
+        {(pools ?? []).map((pool) => {
           const usedPct = pool.totalCapacityBytes > 0
             ? ((pool.usedCapacityBytes / pool.totalCapacityBytes) * 100).toFixed(2)
             : '0';
           const remaining = pool.availableCapacityBytes;
+          const metaUsed = pool.metadataUsedBytes ?? pool.usedCapacityBytes * 0.001;
+          const metaTotal = pool.metadataTotalBytes ?? 93.98 * 1024 * 1024 * 1024;
+          const metaPct = metaTotal > 0 ? (metaUsed / metaTotal) * 100 : 0;
 
           return (
             <Card key={pool.id}>
               <CardHeader className="flex flex-row items-center justify-between pb-3">
-                <CardTitle className="text-lg font-bold">Set {idx + 1}</CardTitle>
+                <CardTitle className="text-lg font-bold">{pool.displayName ?? pool.name}</CardTitle>
                 <StatusBadge status={pool.status} />
               </CardHeader>
               <CardContent className="space-y-5">
@@ -45,13 +48,15 @@ export default function Pools() {
                     <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-vdura-amber">
                       Compatibility Class
                     </div>
-                    <p className="text-sm font-medium">VCH-5050</p>
+                    <p className="text-sm font-medium">{pool.compatibilityClass ?? 'VCH-5050'}</p>
                   </div>
                   <div>
                     <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-vdura-amber">
                       VPODS
                     </div>
-                    <p className="text-sm font-medium">{pool.driveCount}/{pool.driveCount} online</p>
+                    <p className="text-sm font-medium">
+                      {pool.vpodsOnline ?? pool.driveCount}/{pool.vpodCount ?? pool.driveCount} online
+                    </p>
                   </div>
                 </div>
 
@@ -73,13 +78,13 @@ export default function Pools() {
                       File System Metadata <HelpCircle className="h-3 w-3" />
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {formatBytes(pool.usedCapacityBytes * 0.001)} consumed / {formatBytes(93.98 * 1024 * 1024 * 1024)} available
+                      {formatBytes(metaUsed)} consumed / {formatBytes(metaTotal - metaUsed)} available
                     </span>
                   </div>
                   <div className="h-2.5 w-full rounded-full bg-vdura-surface-raised">
                     <div className="flex h-full rounded-full overflow-hidden">
-                      <div className="bg-vdura-amber" style={{ width: '15%' }} />
-                      <div className="bg-vdura-surface" style={{ width: '40%' }} />
+                      <div className="bg-vdura-amber" style={{ width: `${Math.min(metaPct, 100)}%` }} />
+                      <div className="bg-vdura-surface" style={{ width: `${Math.max(100 - metaPct, 0) * 0.6}%` }} />
                     </div>
                   </div>
                 </div>

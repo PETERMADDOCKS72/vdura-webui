@@ -8,9 +8,18 @@ export interface PerformanceDataPoint {
   writeLatencyMs: number;
 }
 
+export interface MetadataDataPoint {
+  timestamp: string;
+  creates: number;
+  removes: number;
+  lookups: number;
+  setMix: number;
+}
+
 export interface PerformanceSummary {
   currentIOPS: number;
   currentThroughputMBs: number;
   currentLatencyMs: number;
   history: PerformanceDataPoint[];
+  metadataHistory?: MetadataDataPoint[];
 }

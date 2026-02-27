@@ -11,4 +11,12 @@ export interface Pool {
   driveCount: number;
   raidLevel: string;
   tier: 'ssd' | 'nearline' | 'hybrid';
+  displayName?: string;
+  compatibilityClass?: string;
+  raidConfig?: string;
+  vpodCount?: number;
+  vpodsOnline?: number;
+  metadataUsedBytes?: number;
+  metadataTotalBytes?: number;
+  nodeCount?: number;
 }

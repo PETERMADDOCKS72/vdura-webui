@@ -1,6 +1,5 @@
-import type { Pool, PoolStatus } from '@vdura/shared';
+import type { Pool } from '@vdura/shared';
 import {
-  parseColumnOutput,
   parseKeyValueOutput,
   parseCapacity,
   nameToId,
@@ -10,38 +9,83 @@ import {
 
 /**
  * Parse `bladeset list allcolumns` output into Pool[].
- * Expected columns vary by firmware, but typically include:
- *   Name  Status  Capacity  Used  Available  Volumes  VPODs  VPODs Online  Drives  ...
+ *
+ * Real PanCLI output format (2-line header):
+ *   BladeSet  BladeSet  OSDs  Spares            Total  Available  Status
+ *   Name      ID              Avail/Request  Capacity   Capacity
+ *   Set 1     1         12    2/2                0 MB       0 MB  12/12 OSDs online
+ *            Capacity balancing in BladeSet "Set 1" is currently off.
+ *            ...
+ *   Displaying 1 out of 1 BladeSets in the System
  */
 export function parseBladesetList(raw: string): Pool[] {
-  const rows = parseColumnOutput(raw);
+  const lines = raw.split('\n');
   const pools: Pool[] = [];
 
-  for (const row of rows) {
-    try {
-      const name = row['Name'] ?? row['BladeSet'] ?? row['Bladeset'] ?? '';
-      if (!name) continue;
+  // Find the header: look for a line containing "BladeSet" and "Status"
+  let headerIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/BladeSet/i.test(lines[i]) && /Status/i.test(lines[i])) {
+      headerIdx = i;
+      break;
+    }
+  }
+  if (headerIdx < 0) return [];
 
-      const totalCapacity = parseCapacity(row['Capacity'] ?? row['Total Capacity'] ?? '0');
-      const usedCapacity = parseCapacity(row['Used'] ?? row['Used Capacity'] ?? '0');
-      const availableCapacity = parseCapacity(row['Available'] ?? row['Available Capacity'] ?? row['Free'] ?? '0');
+  // Data starts 2 lines after the first header line (multi-line header)
+  const dataStart = headerIdx + 2;
+
+  for (let i = dataStart; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Skip continuation/info lines (indented)
+    if (/^\s{2,}/.test(line)) continue;
+    // Skip footer lines
+    if (/^Display(ed|ing)\s+\d+/i.test(trimmed)) continue;
+    // Skip info lines
+    if (/^(Vertical Parity|MLEC|OSD Capacit)/i.test(trimmed)) continue;
+
+    // Parse the data line: fields separated by 2+ spaces
+    // Format: "Set 1     1         12    2/2                0 MB       0 MB  12/12 OSDs online"
+    const parts = trimmed.split(/\s{2,}/);
+    if (parts.length < 4) continue;
+
+    try {
+      const name = parts[0]; // "Set 1"
+      const id = parts[1];   // "1"
+      const osds = parts[2]; // "12"
+      const spares = parts[3]; // "2/2"
+
+      // Capacity fields may have units - scan from end
+      const statusStr = parts[parts.length - 1]; // "12/12 OSDs online"
+      const availCapStr = parts.length > 5 ? parts[parts.length - 2] : '0'; // "0 MB"
+      const totalCapStr = parts.length > 6 ? parts[parts.length - 3] : '0'; // "0 MB"
+
+      const totalCapacity = parseCapacity(totalCapStr);
+      const availableCapacity = parseCapacity(availCapStr);
+
+      // Derive online status from the status string like "12/12 OSDs online"
+      const onlineMatch = statusStr.match(/(\d+)\/(\d+)\s+OSDs?\s+online/i);
+      const status = onlineMatch
+        ? (parseInt(onlineMatch[1]) === parseInt(onlineMatch[2]) ? 'online' : 'degraded')
+        : mapPoolStatus(statusStr);
 
       const pool: Pool = {
         id: nameToId('pool', name),
         name: nameToId('pool', name),
         displayName: name,
-        status: mapPoolStatus(row['Status'] ?? 'online'),
+        status: status as 'online' | 'offline' | 'degraded',
         totalCapacityBytes: totalCapacity,
-        usedCapacityBytes: usedCapacity,
-        availableCapacityBytes: availableCapacity || (totalCapacity - usedCapacity),
-        volumeCount: safeInt(row['Volumes'] ?? row['Volume Count']),
-        driveCount: safeInt(row['Drives'] ?? row['Drive Count']),
-        raidLevel: row['RAID Level'] ?? row['RAID'] ?? row['Layout'] ?? 'unknown',
-        tier: inferTier(name, row['Type'] ?? row['Tier'] ?? ''),
-        vpodCount: safeInt(row['VPODs'] ?? row['VPOD Count']),
-        vpodsOnline: safeInt(row['VPODs Online']),
-        compatibilityClass: row['Compatibility Class'] ?? row['Class'] ?? undefined,
-        nodeCount: safeInt(row['Nodes'] ?? row['Node Count']) || undefined,
+        usedCapacityBytes: totalCapacity - availableCapacity,
+        availableCapacityBytes: availableCapacity,
+        volumeCount: 0,
+        driveCount: safeInt(osds),
+        raidLevel: 'unknown',
+        tier: 'ssd',
+        vpodCount: onlineMatch ? safeInt(onlineMatch[2]) : 0,
+        vpodsOnline: onlineMatch ? safeInt(onlineMatch[1]) : 0,
       };
 
       pools.push(pool);
@@ -69,7 +113,6 @@ export function parseBladesetDetail(raw: string): Partial<Pool> {
   }
   if (kv['RAID Level'] || kv['RAID Config'] || kv['RAID']) {
     result.raidLevel = kv['RAID Level'] ?? kv['RAID Config'] ?? kv['RAID'] ?? undefined;
-    result.raidConfig = kv['RAID Config'] ?? kv['RAID Level'] ?? undefined;
   }
   if (kv['Status']) {
     result.status = mapPoolStatus(kv['Status']);
@@ -88,12 +131,4 @@ export function parseBladesetDetail(raw: string): Partial<Pool> {
   }
 
   return result;
-}
-
-function inferTier(name: string, typeStr: string): 'ssd' | 'nearline' | 'hybrid' {
-  const combined = `${name} ${typeStr}`.toLowerCase();
-  if (combined.includes('ssd') || combined.includes('flash') || combined.includes('nvme')) return 'ssd';
-  if (combined.includes('nearline') || combined.includes('nl') || combined.includes('archive')) return 'nearline';
-  if (combined.includes('hybrid') || combined.includes('mix')) return 'hybrid';
-  return 'ssd'; // default
 }

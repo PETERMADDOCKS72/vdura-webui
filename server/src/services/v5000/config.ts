@@ -22,7 +22,7 @@ export function loadV5000Config(): V5000Config {
 
   if (!host) throw new Error('V5000_HOST is required');
   if (!user) throw new Error('V5000_USER is required');
-  if (!password) throw new Error('V5000_PASSWORD is required');
+  if (password === undefined) throw new Error('V5000_PASSWORD is required');
 
   return {
     host,

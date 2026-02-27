@@ -5,27 +5,42 @@ const GB = 1024 ** 3;
 const MB = 1024 ** 2;
 
 /**
- * Parse fixed-width column output (e.g., bladeset list, volume list, sysmap nodes).
- * Detects column boundaries from the header row by looking for 2+ space gaps.
+ * Parse fixed-width column output from PanCLI.
+ * Supports multi-line headers (e.g., bladeset list, volume list, sysstat).
+ * Detects column boundaries from the header row(s) by looking for 2+ space gaps.
  */
-export function parseColumnOutput(raw: string): ParsedRow[] {
-  const lines = raw.split('\n').filter((l) => l.trim().length > 0);
-  if (lines.length < 2) return [];
+export function parseColumnOutput(raw: string, headerLines = 1): ParsedRow[] {
+  const lines = raw.split('\n');
+  const nonEmpty = lines.filter((l) => l.trim().length > 0);
+  if (nonEmpty.length < headerLines + 1) return [];
 
-  // First non-empty line is the header
-  const header = lines[0];
-  const columns = detectColumns(header);
+  // Use the longest header line for column position detection
+  const headerSlice = nonEmpty.slice(0, headerLines);
+  const widestHeader = headerSlice.reduce((a, b) => a.length >= b.length ? a : b);
+  const columns = detectColumns(widestHeader);
   if (columns.length === 0) return [];
 
+  // Merge column names from all header lines (top-down)
+  for (const col of columns) {
+    const parts: string[] = [];
+    for (let h = 0; h < headerLines; h++) {
+      const value = nonEmpty[h].substring(col.start, Math.min(col.end, nonEmpty[h].length)).trim();
+      if (value) parts.push(value);
+    }
+    col.name = parts.join(' ');
+  }
+
   const rows: ParsedRow[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
+  for (let i = headerLines; i < nonEmpty.length; i++) {
+    const line = nonEmpty[i];
     // Skip separator lines (all dashes/equals)
     if (/^[-=\s]+$/.test(line)) continue;
+    // Skip footer lines
+    if (/^Display(ed|ing)\s+\d+/i.test(line.trim())) continue;
 
     const row: ParsedRow = {};
     for (const col of columns) {
-      const value = line.substring(col.start, col.end).trim();
+      const value = line.substring(col.start, Math.min(col.end, line.length)).trim();
       row[col.name] = value;
     }
     rows.push(row);
@@ -50,14 +65,10 @@ function detectColumns(header: string): Column[] {
 
   while ((match = re.exec(header)) !== null) {
     positions.push({ name: match[0].trim(), start: match.index });
-
-    // Skip ahead past any single-space-joined words, but the regex already handles this
   }
 
   // Build columns with start/end positions
   for (let i = 0; i < positions.length; i++) {
-    // Check if this column name has internal 2+ spaces — if so, it's actually multiple columns
-    // For now, treat each match as a single column name
     columns.push({
       name: positions[i].name,
       start: positions[i].start,
@@ -160,7 +171,7 @@ export function nameToId(prefix: string, name: string): string {
  */
 export function mapNodeStatus(status: string): 'online' | 'offline' | 'service' {
   const s = status.toLowerCase().trim();
-  if (s === 'online' || s === 'up' || s === 'ok' || s === 'active') return 'online';
+  if (s.startsWith('online') || s === 'up' || s === 'ok' || s === 'active') return 'online';
   if (s === 'service' || s === 'maintenance') return 'service';
   return 'offline';
 }
@@ -170,7 +181,7 @@ export function mapNodeStatus(status: string): 'online' | 'offline' | 'service' 
  */
 export function mapPoolStatus(status: string): 'online' | 'offline' | 'degraded' {
   const s = status.toLowerCase().trim();
-  if (s === 'online' || s === 'ok' || s === 'active' || s === 'up') return 'online';
+  if (s.includes('online') || s === 'ok' || s === 'active' || s === 'up') return 'online';
   if (s === 'degraded' || s === 'warning') return 'degraded';
   return 'offline';
 }

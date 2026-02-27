@@ -49,7 +49,9 @@ export default function Volumes() {
       {
         id: 'raid',
         header: 'RAID',
-        cell: () => <span className="text-muted-foreground">RAID 6+ (8+2)</span>,
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">{row.original.raidLevel ?? 'RAID 6+ (8+2)'}</span>
+        ),
         enableSorting: false,
       },
       {
@@ -80,7 +82,7 @@ export default function Volumes() {
       {
         id: 'reductionRatio',
         header: 'Reduction Ratio',
-        cell: () => '2.6:1',
+        cell: ({ row }) => `${(row.original.reductionRatio ?? 2.6).toFixed(1)}:1`,
         enableSorting: false,
       },
       {

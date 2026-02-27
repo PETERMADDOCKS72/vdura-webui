@@ -13,6 +13,8 @@ export interface Volume {
   tieringPolicy: 'auto' | 'none';
   compressed: boolean;
   createdAt: string;
+  reductionRatio?: number;
+  raidLevel?: string;
 }
 
 export interface CreateVolumeRequest {

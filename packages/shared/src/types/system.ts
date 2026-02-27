@@ -1,4 +1,5 @@
 export type NodeStatus = 'online' | 'offline' | 'service';
+export type NodeRole = 'director' | 'storage';
 
 export interface SystemNode {
   id: string;
@@ -8,6 +9,15 @@ export interface SystemNode {
   firmwareVersion: string;
   cpuUsagePercent: number;
   memoryUsagePercent: number;
+  role?: NodeRole;
+  ipAddress?: string;
+  model?: string;
+  poolId?: string;
+  poolName?: string;
+  dataSpaceBytes?: number;
+  dataSpaceTotalBytes?: number;
+  metadataSpaceBytes?: number;
+  metadataSpaceTotalBytes?: number;
 }
 
 export interface SystemInfo {
@@ -21,4 +31,6 @@ export interface SystemInfo {
   nodeCount: number;
   nodes: SystemNode[];
   uptimeSeconds: number;
+  directorNodeCount?: number;
+  storageNodeCount?: number;
 }

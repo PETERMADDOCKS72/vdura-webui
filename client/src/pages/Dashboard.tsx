@@ -10,7 +10,7 @@ import { ErrorMessage } from '@/components/common/ErrorMessage';
 import { formatBytes, formatNumber } from '@/lib/utils';
 import { CheckCircle, AlertTriangle, MinusCircle } from 'lucide-react';
 import {
-  ResponsiveContainer, LineChart, Line,
+  ResponsiveContainer, AreaChart, Area,
   XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
 
@@ -31,10 +31,10 @@ export default function Dashboard() {
   const activeAlerts = allAlerts.filter((a) => a.status === 'active' || a.status === 'acknowledged');
   const perfData = perf.data;
 
-  const onlineNodes = sys.nodes.filter((n) => n.status === 'online').length;
-  const totalNodes = sys.nodes.length;
-  const directorNodes = Math.min(totalNodes, 1); // Mock: 1 director
-  const storageNodes = totalNodes;
+  const directorNodes = sys.directorNodeCount ?? sys.nodes.filter((n) => n.role === 'director').length;
+  const storageNodes = sys.storageNodeCount ?? sys.nodes.filter((n) => n.role === 'storage').length;
+  const onlineStorageNodes = sys.nodes.filter((n) => n.role === 'storage' && n.status === 'online').length;
+  const offlineStorageNodes = storageNodes - onlineStorageNodes;
 
   const onlineVols = vols.filter((v) => v.status === 'online').length;
   const degradedVols = vols.filter((v) => v.status === 'degraded').length;
@@ -54,9 +54,9 @@ export default function Dashboard() {
           <span className="text-sm text-muted-foreground">Storage Nodes</span>
           <span className="text-lg font-bold">{storageNodes}</span>
           <div className="flex items-center gap-3 text-xs">
-            <span className="flex items-center gap-1 text-vdura-green"><CheckCircle className="h-3 w-3" />{onlineNodes}</span>
-            {totalNodes - onlineNodes > 0 && (
-              <span className="flex items-center gap-1 text-vdura-amber"><AlertTriangle className="h-3 w-3" />{totalNodes - onlineNodes}</span>
+            <span className="flex items-center gap-1 text-vdura-green"><CheckCircle className="h-3 w-3" />{onlineStorageNodes}</span>
+            {offlineStorageNodes > 0 && (
+              <span className="flex items-center gap-1 text-vdura-amber"><AlertTriangle className="h-3 w-3" />{offlineStorageNodes}</span>
             )}
           </div>
         </div>
@@ -137,59 +137,107 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-bold">System Performance</CardTitle>
-              <span className="text-xs text-muted-foreground">Last 24h</span>
+              <div className="flex items-center gap-4">
+                <CardTitle className="text-sm font-bold">System Performance</CardTitle>
+                <span className="rounded bg-vdura-surface-raised px-2 py-0.5 text-xs text-muted-foreground">Last 15 min</span>
+                <span className="rounded bg-vdura-surface-raised px-2 py-0.5 text-xs text-muted-foreground">Files...</span>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="mb-4">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Storage Performance</p>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={perfData.history}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#333338" />
-                    <XAxis
-                      dataKey="timestamp"
-                      tickFormatter={(v) => new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      stroke="#555"
-                      tick={{ fill: '#888', fontSize: 10 }}
-                    />
-                    <YAxis stroke="#555" tick={{ fill: '#888', fontSize: 10 }} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#2a2a2e', border: '1px solid #333338', borderRadius: 6 }}
-                      labelFormatter={(v) => new Date(v as string).toLocaleString()}
-                      formatter={(v: number) => formatNumber(Math.round(v))}
-                    />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Line type="monotone" dataKey="readThroughputMBs" stroke="#22c55e" dot={false} name="Read MB/s" strokeWidth={1.5} />
-                    <Line type="monotone" dataKey="writeThroughputMBs" stroke="#ef4444" dot={false} name="Write MB/s" strokeWidth={1.5} />
-                  </LineChart>
-                </ResponsiveContainer>
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {/* Storage Performance */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-vdura-amber">Storage Performance</p>
+                <div className="h-52">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={perfData.history}>
+                      <defs>
+                        <linearGradient id="gradBandwidth" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="gradThroughput" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="gradReadIOPS" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#d4a017" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#d4a017" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="gradWriteIOPS" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#333338" />
+                      <XAxis
+                        dataKey="timestamp"
+                        tickFormatter={(v) => new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        stroke="#555"
+                        tick={{ fill: '#888', fontSize: 10 }}
+                      />
+                      <YAxis stroke="#555" tick={{ fill: '#888', fontSize: 10 }} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#2a2a2e', border: '1px solid #333338', borderRadius: 6 }}
+                        labelFormatter={(v) => new Date(v as string).toLocaleString()}
+                        formatter={(v: number) => formatNumber(Math.round(v))}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Area type="monotone" dataKey="readThroughputMBs" stroke="#22c55e" fill="url(#gradBandwidth)" name="Bandwidth" strokeWidth={1.5} />
+                      <Area type="monotone" dataKey="writeThroughputMBs" stroke="#ef4444" fill="url(#gradThroughput)" name="Throughput" strokeWidth={1.5} />
+                      <Area type="monotone" dataKey="readIOPS" stroke="#d4a017" fill="url(#gradReadIOPS)" name="Read IOPS" strokeWidth={1.5} />
+                      <Area type="monotone" dataKey="writeIOPS" stroke="#8b5cf6" fill="url(#gradWriteIOPS)" name="Write IOPS" strokeWidth={1.5} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-            </div>
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Metadata Operations</p>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={perfData.history}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#333338" />
-                    <XAxis
-                      dataKey="timestamp"
-                      tickFormatter={(v) => new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      stroke="#555"
-                      tick={{ fill: '#888', fontSize: 10 }}
-                    />
-                    <YAxis stroke="#555" tick={{ fill: '#888', fontSize: 10 }} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: '#2a2a2e', border: '1px solid #333338', borderRadius: 6 }}
-                      labelFormatter={(v) => new Date(v as string).toLocaleString()}
-                      formatter={(v: number) => formatNumber(Math.round(v))}
-                    />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Line type="monotone" dataKey="readIOPS" stroke="#d4a017" dot={false} name="Creates" strokeWidth={1.5} />
-                    <Line type="monotone" dataKey="writeIOPS" stroke="#8b5cf6" dot={false} name="Removes" strokeWidth={1.5} />
-                  </LineChart>
-                </ResponsiveContainer>
+
+              {/* Metadata Operations */}
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-vdura-amber">Metadata Operations</p>
+                <div className="h-52">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={perfData.metadataHistory ?? perfData.history}>
+                      <defs>
+                        <linearGradient id="gradCreates" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#d4a017" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#d4a017" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="gradRemoves" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="gradLookups" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="gradSetMix" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#333338" />
+                      <XAxis
+                        dataKey="timestamp"
+                        tickFormatter={(v) => new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        stroke="#555"
+                        tick={{ fill: '#888', fontSize: 10 }}
+                      />
+                      <YAxis stroke="#555" tick={{ fill: '#888', fontSize: 10 }} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#2a2a2e', border: '1px solid #333338', borderRadius: 6 }}
+                        labelFormatter={(v) => new Date(v as string).toLocaleString()}
+                        formatter={(v: number) => formatNumber(Math.round(v))}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Area type="monotone" dataKey="creates" stroke="#d4a017" fill="url(#gradCreates)" name="Creates" strokeWidth={1.5} />
+                      <Area type="monotone" dataKey="removes" stroke="#ef4444" fill="url(#gradRemoves)" name="Removes" strokeWidth={1.5} />
+                      <Area type="monotone" dataKey="lookups" stroke="#22c55e" fill="url(#gradLookups)" name="Lookups" strokeWidth={1.5} />
+                      <Area type="monotone" dataKey="setMix" stroke="#8b5cf6" fill="url(#gradSetMix)" name="Set Mix" strokeWidth={1.5} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
           </CardContent>

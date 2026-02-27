@@ -1,8 +1,12 @@
-import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
+import dotenv from 'dotenv';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+
+import express from 'express';
+import cors from 'cors';
 import { createServices } from './services/index.js';
 import { volumeRoutes } from './routes/volumes.js';
 import { poolRoutes } from './routes/pools.js';
@@ -11,7 +15,6 @@ import { alertRoutes } from './routes/alerts.js';
 import { performanceRoutes } from './routes/performance.js';
 import { systemRoutes } from './routes/system.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const port = Number(process.env.PORT) || 3001;
 

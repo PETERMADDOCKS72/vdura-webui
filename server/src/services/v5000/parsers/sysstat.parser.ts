@@ -1,71 +1,133 @@
 import type { PerformanceDataPoint, MetadataDataPoint } from '@vdura/shared';
-import { parseKeyValueOutput, safeFloat } from './column-parser.js';
+import { safeFloat } from './column-parser.js';
 
 /**
- * Parse `sysstat storage` output into a PerformanceDataPoint.
- * Expected key-value pairs like:
- *   Read IOPS: 12345
- *   Write IOPS: 4567
- *   Read Throughput (MB/s): 500
- *   Write Throughput (MB/s): 200
- *   Read Latency (ms): 0.4
- *   Write Latency (ms): 0.7
+ * Parse `sysstat storage` tabular output into a PerformanceDataPoint.
+ *
+ * Real PanCLI output format (2-line header, per-node rows, total row):
+ *   OSD       IP             CPU  Disk  Op/s  Resp   KB/s  KB/s  Capacity (GB)
+ *             Address          %     %        msec  Write  Read       Total    Used       Avail       Rsvd
+ *   VCH-4,2   10.97.104.108    0     0     0  0.29      0     0   108711.26    8.77    96558.40   12144.09
+ *   ...
+ *             "Set 1" Total    0     0     0  0.23      0     0  1412049.96  105.25  1158683.87  253260.84
  */
 export function parseSysstatStorage(raw: string): PerformanceDataPoint {
-  const kv = parseKeyValueOutput(raw);
+  const lines = raw.split('\n');
+
+  // Look for the "Total" summary row (last data row, starts with spaces)
+  let totalLine = '';
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (/Total/i.test(lines[i]) && /\d/.test(lines[i])) {
+      totalLine = lines[i];
+      break;
+    }
+  }
+
+  // If no total line, try to use the last data row
+  if (!totalLine) {
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const trimmed = lines[i].trim();
+      if (trimmed && /^VCH-/.test(trimmed)) {
+        totalLine = lines[i];
+        break;
+      }
+    }
+  }
+
+  if (!totalLine) {
+    return emptyStoragePoint();
+  }
+
+  // Parse the total line by splitting on whitespace
+  // Format: [pad] "Set 1" Total  CPU  Disk  Op/s  Resp  Write  Read  Total  Used  Avail  Rsvd
+  // We need to find the numeric values
+  const numbers = totalLine.match(/[\d.]+/g);
+  if (!numbers || numbers.length < 8) {
+    return emptyStoragePoint();
+  }
+
+  // The numbers in order: CPU%, Disk%, Op/s, Resp(msec), Write(KB/s), Read(KB/s), Total(GB), Used(GB), Avail(GB), Rsvd(GB)
+  const cpuPct = safeFloat(numbers[0]);
+  const diskPct = safeFloat(numbers[1]);
+  const opsPerSec = safeFloat(numbers[2]);
+  const respMs = safeFloat(numbers[3]);
+  const writeKBs = safeFloat(numbers[4]);
+  const readKBs = safeFloat(numbers[5]);
 
   return {
     timestamp: new Date().toISOString(),
-    readIOPS: safeFloat(findValue(kv, ['Read IOPS', 'ReadIOPS', 'Read IO/s'])),
-    writeIOPS: safeFloat(findValue(kv, ['Write IOPS', 'WriteIOPS', 'Write IO/s'])),
-    readThroughputMBs: safeFloat(findValue(kv, [
-      'Read Throughput (MB/s)', 'Read Throughput', 'ReadThroughput', 'Read BW',
-    ])),
-    writeThroughputMBs: safeFloat(findValue(kv, [
-      'Write Throughput (MB/s)', 'Write Throughput', 'WriteThroughput', 'Write BW',
-    ])),
-    readLatencyMs: safeFloat(findValue(kv, [
-      'Read Latency (ms)', 'Read Latency', 'ReadLatency', 'Read Lat',
-    ])),
-    writeLatencyMs: safeFloat(findValue(kv, [
-      'Write Latency (ms)', 'Write Latency', 'WriteLatency', 'Write Lat',
-    ])),
+    readIOPS: 0, // PanCLI doesn't separate read/write IOPS
+    writeIOPS: opsPerSec,
+    readThroughputMBs: readKBs / 1024,
+    writeThroughputMBs: writeKBs / 1024,
+    readLatencyMs: respMs,
+    writeLatencyMs: respMs,
   };
 }
 
 /**
- * Parse `sysstat director` output into a MetadataDataPoint.
- * Expected key-value pairs like:
- *   Creates: 1200
- *   Removes: 800
- *   Lookups: 5000
- *   SetMix: 2200
+ * Parse `sysstat director` tabular output into a MetadataDataPoint.
+ *
+ * Real PanCLI output format (2-line header, per-director rows):
+ *   Director  IP              CPU    DF     DF   NFS    NFS   NFS
+ *             Address        Util  msec  Ops/s  msec  Ops/s  MB/s
+ *   VCH-1,1   10.97.104.11     2%     -      -     0      0     0
+ *   VCH-2,1   10.97.104.114    9%     -      -     0      0     0
+ *   VCH-3,1   10.97.104.113    9%     -      -     0      0     0
  */
 export function parseSysstatDirector(raw: string): MetadataDataPoint {
-  const kv = parseKeyValueOutput(raw);
+  const lines = raw.split('\n');
+
+  let totalDfOps = 0;
+  let totalNfsOps = 0;
+  let totalNfsMBs = 0;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // Data lines start with VCH- or a director name
+    if (!trimmed || !(/^VCH-/i.test(trimmed) || /^[A-Z]+-\d+/.test(trimmed))) continue;
+
+    // Extract numbers from the line
+    // Format: Director  IP  CPU%  DF_msec  DF_Ops/s  NFS_msec  NFS_Ops/s  NFS_MB/s
+    const parts = trimmed.split(/\s+/);
+    // Skip name and IP, then: CPU%, DF_msec, DF_Ops/s, NFS_msec, NFS_Ops/s, NFS_MB/s
+    if (parts.length < 8) continue;
+
+    const cpuStr = parts[2]; // e.g., "2%"
+    const dfMsec = parts[3]; // e.g., "-"
+    const dfOps = parts[4];  // e.g., "-"
+    const nfsMsec = parts[5];
+    const nfsOps = parts[6];
+    const nfsMBs = parts[7];
+
+    totalDfOps += parseNum(dfOps);
+    totalNfsOps += parseNum(nfsOps);
+    totalNfsMBs += parseNum(nfsMBs);
+  }
 
   return {
     timestamp: new Date().toISOString(),
-    creates: safeFloat(findValue(kv, ['Creates', 'Create Ops', 'CreateOps'])),
-    removes: safeFloat(findValue(kv, ['Removes', 'Remove Ops', 'RemoveOps', 'Deletes'])),
-    lookups: safeFloat(findValue(kv, ['Lookups', 'Lookup Ops', 'LookupOps'])),
-    setMix: safeFloat(findValue(kv, ['SetMix', 'Set Mix', 'SetMixOps', 'Mixed Ops'])),
+    creates: totalDfOps, // DF operations as proxy for metadata
+    removes: 0,
+    lookups: totalNfsOps,
+    setMix: 0,
   };
 }
 
-/**
- * Look up a value using multiple possible key names (firmware version tolerance).
- */
-function findValue(kv: Record<string, string>, keys: string[]): string | undefined {
-  for (const key of keys) {
-    if (kv[key] !== undefined) return kv[key];
-  }
-  // Try case-insensitive match
-  const kvLower = Object.fromEntries(
-    Object.entries(kv).map(([k, v]) => [k.toLowerCase(), v]),
-  );
-  for (const key of keys) {
-    if (kvLower[key.toLowerCase()] !== undefined) return kvLower[key.toLowerCase()];
-  }
-  return undefined;
+function parseNum(s: string): number {
+  if (!s || s === '-') return 0;
+  const n = parseFloat(s.replace('%', ''));
+  return isNaN(n) ? 0 : n;
+}
+
+function emptyStoragePoint(): PerformanceDataPoint {
+  return {
+    timestamp: new Date().toISOString(),
+    readIOPS: 0,
+    writeIOPS: 0,
+    readThroughputMBs: 0,
+    writeThroughputMBs: 0,
+    readLatencyMs: 0,
+    writeLatencyMs: 0,
+  };
 }

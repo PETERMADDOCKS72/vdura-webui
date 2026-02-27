@@ -1,7 +1,9 @@
 import { Client, type ClientChannel } from 'ssh2';
 import type { V5000Config } from './config.js';
 
-const PROMPT_RE = /^[a-zA-Z0-9._@-]+>\s*$/m;
+// Match both the Linux shell prompt (hash) and PanCLI prompt [pancli]
+const SHELL_PROMPT_RE = /[#$]\s*$/m;
+const PANCLI_PROMPT_RE = /\[pancli\]\s*$/m;
 const MAX_RECONNECT_ATTEMPTS = 3;
 const BACKOFF_BASE_MS = 1000;
 
@@ -66,10 +68,24 @@ export class SshClient {
             this.shell = null;
           });
 
-          // Wait for initial prompt before resolving
-          this.waitForPrompt(stream, this.config.commandTimeoutMs)
+          // Two-stage init: wait for shell prompt, then launch pancli
+          this.waitForPrompt(stream, SHELL_PROMPT_RE, this.config.commandTimeoutMs)
             .then(() => {
-              console.log(`[v5000] SSH connected to ${this.config.host}`);
+              console.log(`[v5000] SSH shell ready on ${this.config.host}`);
+              // Launch pancli
+              stream.write('pancli\n');
+              return this.waitForPrompt(stream, PANCLI_PROMPT_RE, this.config.commandTimeoutMs);
+            })
+            .then((banner) => {
+              console.log(`[v5000] PanCLI ready on ${this.config.host}`);
+              // Log the banner (contains system name and status)
+              const clean = banner.replace(/\x1B\[[0-9;]*[A-Za-z]/g, '').replace(/\r/g, '');
+              for (const line of clean.split('\n')) {
+                const trimmed = line.trim();
+                if (trimmed && !trimmed.startsWith('[pancli]') && !trimmed.startsWith('pancli')) {
+                  console.log(`[v5000]   ${trimmed}`);
+                }
+              }
               resolve();
             })
             .catch((e) => {
@@ -92,11 +108,18 @@ export class SshClient {
         this.shell = null;
       });
 
+      // Support keyboard-interactive auth (common on V5000/PanCLI)
+      client.on('keyboard-interactive', (_name, _instructions, _instructionsLang, prompts, finish) => {
+        const responses = prompts.map(() => this.config.password);
+        finish(responses);
+      });
+
       client.connect({
         host: this.config.host,
         port: this.config.port,
         username: this.config.user,
         password: this.config.password,
+        tryKeyboard: true,
         readyTimeout: this.config.connectTimeoutMs,
         algorithms: {
           kex: [
@@ -138,17 +161,17 @@ export class SshClient {
     });
   }
 
-  private waitForPrompt(stream: ClientChannel, timeoutMs: number): Promise<string> {
+  private waitForPrompt(stream: ClientChannel, promptRe: RegExp, timeoutMs: number): Promise<string> {
     return new Promise((resolve, reject) => {
       let buffer = '';
       const timeout = setTimeout(() => {
         stream.removeAllListeners('data');
-        reject(new Error(`Timed out waiting for prompt after ${timeoutMs}ms`));
+        reject(new Error(`Timed out waiting for prompt (${promptRe}) after ${timeoutMs}ms. Buffer: ${JSON.stringify(buffer.slice(-200))}`));
       }, timeoutMs);
 
       const onData = (data: Buffer) => {
         buffer += data.toString('utf8');
-        if (PROMPT_RE.test(buffer)) {
+        if (promptRe.test(buffer)) {
           clearTimeout(timeout);
           stream.removeListener('data', onData);
           resolve(buffer);
@@ -207,10 +230,10 @@ export class SshClient {
     // Write the command
     shell.write(command + '\n');
 
-    // Wait for prompt (command output + prompt)
+    // Wait for PanCLI prompt (command output + prompt)
     let output: string;
     try {
-      output = await this.waitForPrompt(shell, this.config.commandTimeoutMs);
+      output = await this.waitForPrompt(shell, PANCLI_PROMPT_RE, this.config.commandTimeoutMs);
     } catch (err) {
       // On timeout, try to reconnect for next command
       this.connected = false;
@@ -221,7 +244,7 @@ export class SshClient {
     if (isConfirm) {
       shell.write('y\n');
       try {
-        const confirmOutput = await this.waitForPrompt(shell, this.config.commandTimeoutMs);
+        const confirmOutput = await this.waitForPrompt(shell, PANCLI_PROMPT_RE, this.config.commandTimeoutMs);
         output += confirmOutput;
       } catch (err) {
         this.connected = false;
@@ -254,7 +277,7 @@ export class SshClient {
     // Remove trailing prompt line
     let endIdx = lines.length;
     for (let i = lines.length - 1; i >= startIdx; i--) {
-      if (PROMPT_RE.test(lines[i])) {
+      if (PANCLI_PROMPT_RE.test(lines[i])) {
         endIdx = i;
         break;
       }

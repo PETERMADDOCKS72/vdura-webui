@@ -17,7 +17,7 @@ export class V5000VolumeService implements IVolumeService {
     const cached = this.cache.get(CACHE_KEY);
     if (cached) return cached;
 
-    const result = await this.ssh.execute('volume list allcolumns');
+    const result = await this.ssh.execute('volume list show all');
     const volumes = parseVolumeList(result.output);
 
     this.cache.set(CACHE_KEY, volumes);

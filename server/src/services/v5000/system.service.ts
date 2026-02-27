@@ -4,6 +4,7 @@ import type { SshClient } from './SshClient.js';
 import type { Cache } from './Cache.js';
 import { parseAbout } from './parsers/about.parser.js';
 import { parseSysmapNodes, parseSysmapCapacity, enrichNodesWithCapacity } from './parsers/sysmap.parser.js';
+import { parseKeyValueOutput, parseCapacity } from './parsers/column-parser.js';
 
 const CACHE_KEY = 'system-info';
 
@@ -17,30 +18,36 @@ export class V5000SystemService implements ISystemService {
     const cached = this.cache.get(CACHE_KEY);
     if (cached) return cached;
 
-    const [aboutResult, nodesResult, capacityResult] = await Promise.all([
+    const [aboutResult, sysmapResult, nodesResult, capacityResult] = await Promise.all([
       this.ssh.execute('about'),
+      this.ssh.execute('sysmap'),
       this.ssh.execute('sysmap nodes allcolumns'),
       this.ssh.execute('sysmap nodes storage capacity'),
     ]);
 
     const about = parseAbout(aboutResult.output);
+    const sysmapKv = parseKeyValueOutput(sysmapResult.output);
     const nodes = parseSysmapNodes(nodesResult.output);
     const capacityMap = parseSysmapCapacity(capacityResult.output);
     const enrichedNodes = enrichNodesWithCapacity(nodes, capacityMap);
 
+    // Get cluster name from sysmap output
+    const clusterName = sysmapKv['System DNS Name'] ?? sysmapKv['System Name'] ?? about.clusterName;
+
     const directorNodes = enrichedNodes.filter((n) => n.role === 'director');
     const storageNodes = enrichedNodes.filter((n) => n.role === 'storage');
 
+    // Compute capacity from sysstat storage total or from node capacities
     const totalRaw = storageNodes.reduce((sum, n) => sum + (n.dataSpaceTotalBytes ?? 0), 0);
     const totalUsed = storageNodes.reduce((sum, n) => sum + (n.dataSpaceBytes ?? 0), 0);
 
     const info: SystemInfo = {
-      clusterName: about.clusterName,
+      clusterName,
       model: about.model,
       serialNumber: about.serialNumber,
       firmwareVersion: about.firmwareVersion,
       totalRawCapacityBytes: totalRaw,
-      totalUsableCapacityBytes: totalRaw, // approximation; usable ≈ raw for now
+      totalUsableCapacityBytes: totalRaw,
       totalUsedCapacityBytes: totalUsed,
       nodeCount: enrichedNodes.length,
       nodes: enrichedNodes,
